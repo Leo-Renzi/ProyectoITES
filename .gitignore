@@ -1,0 +1,27 @@
+﻿# Node.js / Backend
+node_modules/
+package-lock.json
+
+# Arduino / ESP32
+*.bin
+*.elf
+*.hex
+*.o
+.pio/
+.vscode/
+
+# Docker / Infra
+mysql_data/
+mosquitto/data/
+mosquitto/log/
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Env
+.env
