@@ -1,0 +1,17 @@
+# Node
+backend/node_modules/
+backend/package-lock.json
+
+# Docker
+mysql_data/
+mosquitto/data/
+mosquitto/log/
+
+# Arduino
+*.hex
+*.elf
+*.bin
+
+# Otros
+.DS_Store
+.env
