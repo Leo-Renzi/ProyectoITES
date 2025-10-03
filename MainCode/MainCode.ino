@@ -1,39 +1,28 @@
 #include <WiFi.h>
 #include <PubSubClient.h>
 
-// ======================================================
-//  CONFIG WIFI + MQTT
-// ======================================================
 #define WIFI_SSID       "TU_SSID"
 #define WIFI_PASS       "TU_PASS"
 #define MQTT_SERVER     "192.168.1.100"
 #define MQTT_PORT       1883
 #define CLIENT_ID       "esp32_tank_01"
 
-// ======================================================
-//  HARDWARE DEFINITIONS (L298N + Ultrasonido + Batería)
-// ======================================================
-#define PIN_IN1   16
-#define PIN_IN2   17
-#define PIN_IN3   18
-#define PIN_IN4   19
-#define PIN_ENA   25
-#define PIN_ENB   26
+#define PIN_IN1         16
+#define PIN_IN2         17
+#define PIN_IN3         18
+#define PIN_IN4         19
+#define PIN_ENA         25
+#define PIN_ENB         26
 
-#define PIN_TRIG  12
-#define PIN_ECHO  13
-#define PIN_VBAT  35   // lectura de batería (ADC)
+#define PIN_TRIG        12
+#define PIN_ECHO        13
+#define PIN_VBAT        35   
 
-// PWM config
-#define PWM_FREQ   2000
-#define PWM_RES    8
-#define CH_A       0
-#define CH_B       1
+#define PWM_FREQ       2000
+#define PWM_RES        8
+#define CH_A           0
+#define CH_B           1
 
-// ======================================================
-//  MACROS de Hardware
-// ======================================================
-// Motores
 #define MOTOR_A_FWD()   digitalWrite(PIN_IN1, HIGH); digitalWrite(PIN_IN2, LOW)
 #define MOTOR_A_BACK()  digitalWrite(PIN_IN1, LOW);  digitalWrite(PIN_IN2, HIGH)
 #define MOTOR_A_STOP()  digitalWrite(PIN_IN1, LOW);  digitalWrite(PIN_IN2, LOW)
@@ -45,30 +34,25 @@
 #define MOTOR_A_PWM(val) ledcWrite(CH_A, val)
 #define MOTOR_B_PWM(val) ledcWrite(CH_B, val)
 
-// Ultrasonido
 #define ULTRASONIC_TRIGGER() digitalWrite(PIN_TRIG, HIGH)
 #define ULTRASONIC_RESET()   digitalWrite(PIN_TRIG, LOW)
 #define ULTRASONIC_READ()    digitalRead(PIN_ECHO)
 
-// ======================================================
-//  OBJETOS Y VARS GLOBALES
-// ======================================================
 WiFiClient espClient;
 PubSubClient client(espClient);
 
 unsigned long lastTelemetry = 0;
 
-// Ultrasonido no bloqueante
 enum USState {US_IDLE, US_TRIGGER, US_WAIT_ECHO};
 USState usState = US_IDLE;
 unsigned long usStart = 0;
 unsigned long echoStart = 0;
 long lastDistance = -1;
 
-// ======================================================
-//  SETUP
-// ======================================================
+
 void setupPins() {
+
+  //abstraer hardware a macros
   pinMode(PIN_IN1, OUTPUT); pinMode(PIN_IN2, OUTPUT);
   pinMode(PIN_IN3, OUTPUT); pinMode(PIN_IN4, OUTPUT);
   ledcSetup(CH_A, PWM_FREQ, PWM_RES);
@@ -88,7 +72,7 @@ void setup() {
   WiFi.begin(WIFI_SSID, WIFI_PASS);
   Serial.print("Conectando WiFi");
   while (WiFi.status() != WL_CONNECTED) {
-    delay(200);
+    delay(200); //refactorizar con millis
     Serial.print(".");
   }
   Serial.println(" OK");
@@ -98,9 +82,7 @@ void setup() {
   reconnectMQTT();
 }
 
-// ======================================================
-//  MQTT
-// ======================================================
+
 void reconnectMQTT() {
   while (!client.connected()) {
     Serial.print("Conectando MQTT...");
@@ -110,7 +92,7 @@ void reconnectMQTT() {
     } else {
       Serial.print(" fallo, rc=");
       Serial.println(client.state());
-      delay(1000);
+      delay(1000); //refactorizar con millis
     }
   }
 }
@@ -119,17 +101,16 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
   String msg;
   for (unsigned int i = 0; i < length; i++) msg += (char)payload[i];
   Serial.print("CMD: "); Serial.println(msg);
-
+  
+  //refactorizar puede ser un swicht case
   if (msg.indexOf("forward") >= 0) driveForward(200);
-  else if (msg.indexOf("back") >= 0) driveBack(200);
+  else if (msg.indexOf("back") >= 0) driveBack(200); 
   else if (msg.indexOf("left") >= 0) turnLeft(200);
   else if (msg.indexOf("right") >= 0) turnRight(200);
   else if (msg.indexOf("stop") >= 0) stopMotors();
 }
 
-// ======================================================
-//  CONTROL DE MOTORES
-// ======================================================
+
 void driveForward(int pwm) {
   MOTOR_A_FWD(); MOTOR_B_FWD();
   MOTOR_A_PWM(pwm); MOTOR_B_PWM(pwm);
@@ -151,9 +132,7 @@ void stopMotors() {
   MOTOR_A_PWM(0); MOTOR_B_PWM(0);
 }
 
-// ======================================================
-//  ULTRASONIDO (no bloqueante)
-// ======================================================
+//refactorizar 
 void handleUltrasonic() {
   unsigned long now = micros();
 
@@ -167,7 +146,7 @@ void handleUltrasonic() {
       break;
 
     case US_TRIGGER:
-      if (now - usStart >= 10) { // 10µs HIGH
+      if (now - usStart >= 10) { 
         ULTRASONIC_RESET();
         usStart = now;
         usState = US_WAIT_ECHO;
@@ -187,12 +166,10 @@ void handleUltrasonic() {
   }
 }
 
-// ======================================================
-//  TELEMETRÍA
-// ======================================================
+
 void sendTelemetry() {
   int vRaw = analogRead(PIN_VBAT);
-  float voltage = (vRaw / 4095.0) * 3.3 * 2.0; // ajusta divisor resistivo
+  float voltage = (vRaw / 4095.0) * 3.3 * 2.0; 
 
   String payload = "{";
   payload += "\"distance\":" + String(lastDistance) + ",";
@@ -202,9 +179,6 @@ void sendTelemetry() {
   Serial.println("Telemetry -> " + payload);
 }
 
-// ======================================================
-//  LOOP PRINCIPAL
-// ======================================================
 void loop() {
   if (!client.connected()) reconnectMQTT();
   client.loop();
